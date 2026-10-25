@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 · 2026-10-25
+
+- `kinesia-validate` (development tool): `swift run kinesia-validate mediciones.csv` reads each trial's
+  video with `VideoPoseProvider`, takes the angle at the end of the range and compares it with the
+  goniometer reading. Per exercise and side it reports mean absolute error, bias, worst error, share
+  within ±5° and pass/fail, and writes `resultados.csv`.
+- `Validation/` has the CSV template and the recording instructions for the pilot.
+- No changes to the `KinesiaMotion` or `KinesiaMotionVision` APIs.
+
 ## 0.2.0 · 2026-10-24
 
 - `VideoPoseProvider` (KinesiaMotionVision): poses from a video file with the same Vision body pose
