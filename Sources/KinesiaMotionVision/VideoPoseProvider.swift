@@ -16,6 +16,7 @@ import KinesiaMotion
 /// - `mirrored`: pass `true` when the video shows the patient as a mirror does (a selfie
 ///   recording that kept the preview's flip). Sides are then swapped to the patient's real ones.
 /// - Without `realTime`, frames go out as fast as Vision reads them: good for tests and analysis.
+/// - `world: true` also runs Vision's 3D body pose, so poses carry 3D points.
 /// - Use `readAll()` to get every pose at once, for example to build a `RecordedPoseProvider`.
 public struct VideoPoseProvider: PoseProvider {
     public let url: URL
@@ -25,17 +26,21 @@ public struct VideoPoseProvider: PoseProvider {
     public let maximumFrameRate: Double
     /// Waits between frames as in the video, like the live camera would.
     public let realTime: Bool
+    /// Poses also carry 3D points (Vision's 3D body pose).
+    public let world: Bool
 
     public init(url: URL,
                 mirrored: Bool = false,
                 minimumConfidence: Float = 0.3,
                 maximumFrameRate: Double = 30,
-                realTime: Bool = false) {
+                realTime: Bool = false,
+                world: Bool = false) {
         self.url = url
         self.mirrored = mirrored
         self.minimumConfidence = minimumConfidence
         self.maximumFrameRate = maximumFrameRate
         self.realTime = realTime
+        self.world = world
     }
 
     public enum ReadError: Error, Sendable {
@@ -93,6 +98,7 @@ public struct VideoPoseProvider: PoseProvider {
         defer { reader.cancelReading() }
 
         let request = VNDetectHumanBodyPoseRequest()
+        let request3D = VNDetectHumanBodyPose3DRequest()
         let minimumGap = maximumFrameRate > 0 ? 1 / maximumFrameRate : 0
         var lastTimestamp: TimeInterval?
 
@@ -107,9 +113,10 @@ public struct VideoPoseProvider: PoseProvider {
             lastTimestamp = timestamp
 
             let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: orientation)
-            try? handler.perform([request])
+            try? handler.perform(world ? [request, request3D] : [request])
 
             await handle(Pose(observation: request.results?.first,
+                              observation3D: world ? request3D.results?.first : nil,
                               imageSize: imageSize,
                               timestamp: timestamp,
                               mirrored: mirrored,

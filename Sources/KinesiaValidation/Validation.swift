@@ -158,8 +158,15 @@ public enum Validation {
 
     /// The angle at the end of the range: the median of the 5 highest frames, so one bad
     /// detection can't set the result. nil when the joints were never measured.
-    public static func peakAngle(in poses: [Pose], exercise: ExerciseDefinition, side: BodySide) -> (angle: Double, frames: Int)? {
-        let values = poses.compactMap { exercise.primary.value(in: $0, side: side) }
+    /// `space` forces the image or the 3D points; nil uses 3D when the poses have it.
+    public static func peakAngle(in poses: [Pose],
+                                 exercise: ExerciseDefinition,
+                                 side: BodySide,
+                                 space: MeasureSpace? = nil) -> (angle: Double, frames: Int)? {
+        let values = poses.compactMap { pose in
+            space.map { exercise.primary.value(in: pose, side: side, space: $0) }
+                ?? exercise.primary.value(in: pose, side: side)
+        }
         guard !values.isEmpty else { return nil }
         let top = values.sorted(by: >).prefix(5).sorted()
         let middle = top.count / 2

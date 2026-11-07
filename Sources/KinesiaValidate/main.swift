@@ -47,40 +47,62 @@ guard !trials.isEmpty else {
 
 print("Analizando \(trials.count) video(s)…\n")
 
-var results: [ValidationResult] = []
+var results: [MeasureSpace: [ValidationResult]] = [.image: [], .world: []]
+func record(_ trial: ValidationTrial,
+            _ peaks: [MeasureSpace: (angle: Double, frames: Int)] = [:],
+            into results: inout [MeasureSpace: [ValidationResult]]) {
+    for space in MeasureSpace.allCases {
+        results[space, default: []].append(
+            ValidationResult(trial: trial, kinesia: peaks[space]?.angle, measuredFrames: peaks[space]?.frames ?? 0))
+    }
+}
+func describe(_ peak: (angle: Double, frames: Int)?, _ goniometer: Double) -> String {
+    guard let peak else { return "–" }
+    return "\(String(format: "%.1f", peak.angle))° (\(String(format: "%+.1f", peak.angle - goniometer))°)"
+}
+
 for (index, trial) in trials.enumerated() {
     let videoURL = folder.appendingPathComponent(trial.video)
     let label = "[\(index + 1)/\(trials.count)] \(trial.video)"
 
     guard FileManager.default.fileExists(atPath: videoURL.path) else {
         print("\(label): no encontré el archivo")
-        results.append(ValidationResult(trial: trial, kinesia: nil, measuredFrames: 0))
+        record(trial, into: &results)
         continue
     }
 
     do {
-        let poses = try await VideoPoseProvider(url: videoURL, mirrored: trial.mirrored).readAll()
-        if let peak = Validation.peakAngle(in: poses, exercise: trial.exercise, side: trial.side) {
-            let difference = peak.angle - trial.goniometer
-            print("\(label): goniómetro \(Int(trial.goniometer))° · Kinesia \(String(format: "%.1f", peak.angle))° · diferencia \(String(format: "%+.1f", difference))°")
-            results.append(ValidationResult(trial: trial, kinesia: peak.angle, measuredFrames: peak.frames))
-        } else {
-            print("\(label): no se vieron las articulaciones en \(poses.count) cuadros. ¿Cuerpo completo y de perfil?")
-            results.append(ValidationResult(trial: trial, kinesia: nil, measuredFrames: 0))
+        // One pass gives both: the 2D points and the 3D ones.
+        let poses = try await VideoPoseProvider(url: videoURL, mirrored: trial.mirrored, world: true).readAll()
+        var peaks: [MeasureSpace: (angle: Double, frames: Int)] = [:]
+        for space in MeasureSpace.allCases {
+            peaks[space] = Validation.peakAngle(in: poses, exercise: trial.exercise, side: trial.side, space: space)
         }
+        if peaks.isEmpty {
+            print("\(label): no se vieron las articulaciones en \(poses.count) cuadros. ¿Cuerpo completo y de perfil?")
+        } else {
+            print("\(label): goniómetro \(Int(trial.goniometer))° · 2D \(describe(peaks[.image], trial.goniometer)) · 3D \(describe(peaks[.world], trial.goniometer))")
+        }
+        record(trial, peaks, into: &results)
     } catch {
         print("\(label): no pude leer el video (\(error))")
-        results.append(ValidationResult(trial: trial, kinesia: nil, measuredFrames: 0))
+        record(trial, into: &results)
     }
 }
 
-print("")
-print(Validation.report(Validation.summarize(results)))
+let outputs: [(MeasureSpace, String, String)] = [
+    (.image, "2D · sobre la imagen", "resultados.csv"),
+    (.world, "3D · con profundidad", "resultados-3d.csv"),
+]
+for (space, title, file) in outputs {
+    print("\n\(title)\n")
+    print(Validation.report(Validation.summarize(results[space] ?? [])))
 
-let output = folder.appendingPathComponent("resultados.csv")
-do {
-    try Validation.resultsCSV(results).write(to: output, atomically: true, encoding: .utf8)
-    print("\nDetalle por medición: \(output.path)")
-} catch {
-    print("\nNo pude escribir \(output.path): \(error)")
+    let output = folder.appendingPathComponent(file)
+    do {
+        try Validation.resultsCSV(results[space] ?? []).write(to: output, atomically: true, encoding: .utf8)
+        print("\nDetalle por medición: \(output.path)")
+    } catch {
+        print("\nNo pude escribir \(output.path): \(error)")
+    }
 }

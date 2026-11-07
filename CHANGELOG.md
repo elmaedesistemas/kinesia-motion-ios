@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0 · 2026-11-06
+
+3D measurement, opt-in.
+
+- `Pose.world`: optional 3D positions (meters, y up) for the joints in `points`. `pose.imageOnly` drops them.
+- `Measure.value(in:side:)` measures in 3D when every joint it needs has a world point, and on the
+  image otherwise. `imageValue`, `worldValue` and `value(in:side:space:)` with `MeasureSpace` force one space.
+- `VisionPoseProvider(world: true)` and `VideoPoseProvider(world: true)` also run Vision's 3D body pose
+  (`VNDetectHumanBodyPose3DRequest`). Off by default, so nothing changes for existing apps.
+- `kinesia-validate` measures every video in 2D and 3D and writes `resultados.csv` and `resultados-3d.csv`.
+
 ## 0.3.0 · 2026-10-25
 
 - `kinesia-validate` (development tool): `swift run kinesia-validate mediciones.csv` reads each trial's

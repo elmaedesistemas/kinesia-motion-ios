@@ -16,6 +16,8 @@ import KinesiaMotion
 /// - Front camera: sides are un-mirrored here, so poses carry the patient's real left/right.
 /// - Show `captureSession` in an `AVCaptureVideoPreviewLayer` for the live image.
 /// - One stream at a time.
+/// - `world: true` also runs Vision's 3D body pose, so poses carry 3D points and angles hold
+///   when the patient isn't square to the camera. It costs more per frame.
 public final class VisionPoseProvider: NSObject, PoseProvider, @unchecked Sendable {
     // @unchecked: AVCaptureSession isn't Sendable. All camera work runs on `queue`,
     // and the only state shared across threads (`continuation`) is guarded by `lock`.
@@ -28,16 +30,20 @@ public final class VisionPoseProvider: NSObject, PoseProvider, @unchecked Sendab
     public let captureSession = AVCaptureSession()
     public let camera: Camera
     public let minimumConfidence: Float
+    /// Poses also carry 3D points (Vision's 3D body pose).
+    public let world: Bool
 
     private let queue = DispatchQueue(label: "kinesia.motion.vision")
     private let lock = NSLock()
     private let request = VNDetectHumanBodyPoseRequest()
+    private let request3D = VNDetectHumanBodyPose3DRequest()
     private var continuation: AsyncStream<Pose>.Continuation?
     private var isConfigured = false
 
-    public init(camera: Camera = .front, minimumConfidence: Float = 0.3) {
+    public init(camera: Camera = .front, minimumConfidence: Float = 0.3, world: Bool = false) {
         self.camera = camera
         self.minimumConfidence = minimumConfidence
+        self.world = world
         super.init()
     }
 
@@ -129,9 +135,10 @@ extension VisionPoseProvider: AVCaptureVideoDataOutputSampleBufferDelegate {
         let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds
 
         let handler = VNImageRequestHandler(cmSampleBuffer: sampleBuffer, orientation: orientation)
-        try? handler.perform([request])
+        try? handler.perform(world ? [request, request3D] : [request])
 
         yield(Pose(observation: request.results?.first,
+                   observation3D: world ? request3D.results?.first : nil,
                    imageSize: imageSize,
                    timestamp: timestamp,
                    mirrored: isMirrored,

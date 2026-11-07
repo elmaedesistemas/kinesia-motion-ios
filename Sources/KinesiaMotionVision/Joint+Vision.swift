@@ -25,6 +25,19 @@ extension Joint {
         .leftAnkle: .leftAnkle, .rightAnkle: .rightAnkle
     ]
 
+    /// Vision's 3D body joints that match ours. The 3D model has no eyes, ears or nose;
+    /// its center between the shoulders is our neck.
+    static let vision3DNames: [VNHumanBodyPose3DObservation.JointName: Joint] = [
+        .centerShoulder: .neck,
+        .leftShoulder: .leftShoulder, .rightShoulder: .rightShoulder,
+        .leftElbow: .leftElbow, .rightElbow: .rightElbow,
+        .leftWrist: .leftWrist, .rightWrist: .rightWrist,
+        .root: .root,
+        .leftHip: .leftHip, .rightHip: .rightHip,
+        .leftKnee: .leftKnee, .rightKnee: .rightKnee,
+        .leftAnkle: .leftAnkle, .rightAnkle: .rightAnkle
+    ]
+
     /// Converts a Vision joint into the patient's anatomical joint.
     /// With a mirrored image (front camera), Vision's "left" is the patient's real right.
     init?(visionName: VNHumanBodyPoseObservation.JointName, mirrored: Bool) {
