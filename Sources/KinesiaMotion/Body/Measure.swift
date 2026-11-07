@@ -40,6 +40,12 @@ public enum Measure: Sendable, Hashable, Codable {
         }
     }
 
+    /// `space` nil: 3D when available, image otherwise. Otherwise that space only.
+    func value(in pose: Pose, side: BodySide, preferring space: MeasureSpace?) -> Double? {
+        guard let space else { return value(in: pose, side: side) }
+        return value(in: pose, side: side, space: space)
+    }
+
     /// The measure in the image plane, ignoring any 3D points.
     public func imageValue(in pose: Pose, side: BodySide) -> Double? {
         func point(_ ref: LandmarkRef) -> CGPoint? { pose[ref.joint(for: side)] }

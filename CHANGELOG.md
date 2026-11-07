@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0 · 2026-11-06
+
+Choose 2D or 3D.
+
+- `MotionSession(space:)` and `MotionSession.space`: `.image` always measures in 2D, `.world` always in 3D
+  (needs a provider with `world: true`), nil (default) uses 3D whenever the pose has it. It can change live.
+- `RepEngine.space` does the same without a session; form rules follow it too.
+
 ## 0.4.0 · 2026-11-06
 
 3D measurement, opt-in.

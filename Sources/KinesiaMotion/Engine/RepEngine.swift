@@ -81,6 +81,9 @@ public struct RepEngine: Sendable {
     public var framesToCue = 6
     /// EMA factor for the primary value. 1 = no smoothing.
     public var smoothing = 0.5
+    /// Where angles are measured: `.image` (2D), `.world` (3D, needs poses with world points)
+    /// or nil to use 3D whenever the pose has it.
+    public var space: MeasureSpace?
     /// Hold exercises: how far (degrees) the value may drift before the hold clock restarts.
     public var holdTolerance = 5.0
 
@@ -120,7 +123,7 @@ public struct RepEngine: Sendable {
     public var peaks: [Double] { reps.map(\.peak) }
 
     public mutating func process(_ pose: Pose) -> [MotionEvent] {
-        guard let raw = definition.primary.value(in: pose, side: side) else { return [] }
+        guard let raw = definition.primary.value(in: pose, side: side, preferring: space) else { return [] }
 
         let smoothed = value.map { $0 + smoothing * (raw - $0) } ?? raw
         value = smoothed
@@ -301,7 +304,7 @@ public struct RepEngine: Sendable {
     private mutating func checkForm(in pose: Pose) -> [MotionEvent] {
         var events: [MotionEvent] = []
         for rule in definition.rules {
-            guard let broken = rule.isBroken(in: pose, side: side) else { continue }
+            guard let broken = rule.isBroken(in: pose, side: side, space: space) else { continue }
             let feedback = rule.feedback
 
             if broken {

@@ -29,8 +29,8 @@ public struct FormRule: Sendable, Hashable, Codable {
     }
 
     /// nil when the joints aren't visible (we don't punish what we can't see).
-    func isBroken(in pose: Pose, side: BodySide) -> Bool? {
-        guard let value = measure.value(in: pose, side: side) else { return nil }
+    func isBroken(in pose: Pose, side: BodySide, space: MeasureSpace? = nil) -> Bool? {
+        guard let value = measure.value(in: pose, side: side, preferring: space) else { return nil }
         return !allowed.contains(value)
     }
 }

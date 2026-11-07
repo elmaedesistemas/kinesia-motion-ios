@@ -84,4 +84,35 @@ struct Measure3DTests {
         #expect(elbow.value(in: pose, side: .right, space: .world) == nil)
         #expect(elbow.value(in: pose, side: .right, space: .image) != nil)
     }
+
+    @Test func engineMeasuresInTheChosenSpace() {
+        let pose = turnedElbow(flexion: 120, turn: 50)
+        func firstValue(_ space: MeasureSpace?) -> Double? {
+            var engine = RepEngine(definition: ExerciseLibrary.elbowFlexion, side: .right)
+            engine.space = space
+            _ = engine.process(pose)
+            return engine.value
+        }
+        #expect(firstValue(.image) == elbow.imageValue(in: pose, side: .right))
+        #expect(firstValue(.world) == elbow.worldValue(in: pose, side: .right))
+        #expect(firstValue(nil) == elbow.worldValue(in: pose, side: .right))
+
+        // 3D forced but the pose has none: nothing is measured.
+        var engine = RepEngine(definition: ExerciseLibrary.elbowFlexion, side: .right)
+        engine.space = .world
+        _ = engine.process(pose.imageOnly)
+        #expect(engine.value == nil)
+    }
+
+    @Test @MainActor func sessionPassesItsSpaceToTheEngine() {
+        let pose = turnedElbow(flexion: 120, turn: 50)
+        let session = MotionSession(exercise: ExerciseLibrary.elbowFlexion, side: .right, space: .image)
+        session.process(pose)
+        #expect(session.snapshot.value == elbow.imageValue(in: pose, side: .right))
+
+        session.space = .world
+        session.reset()
+        session.process(pose)
+        #expect(session.snapshot.value == elbow.worldValue(in: pose, side: .right))
+    }
 }

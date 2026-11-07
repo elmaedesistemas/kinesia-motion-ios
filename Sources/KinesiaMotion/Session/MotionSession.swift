@@ -23,6 +23,14 @@ public final class MotionSession {
     public private(set) var snapshot = MotionSnapshot()
     public private(set) var exercise: ExerciseDefinition
     public private(set) var side: BodySide
+    /// Where angles are measured:
+    /// - `.image`: 2D, on the camera image. Works with any pose source.
+    /// - `.world`: 3D. Needs a source that gives world points (`VisionPoseProvider(world: true)`).
+    /// - nil (default): 3D whenever the pose has it, 2D otherwise.
+    /// Changing it applies from the next frame; the reps so far stay.
+    public var space: MeasureSpace? {
+        didSet { engine.space = space }
+    }
     
     /// Peaks of the clean reps so far. Read it when saving a session.
     public var peaks: [Double] { engine.peaks }
@@ -44,11 +52,12 @@ public final class MotionSession {
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var listeners: [UUID: AsyncStream<MotionEvent>.Continuation] = [:]
 
-    public init(exercise: ExerciseDefinition, side: BodySide, smoothing: Double = 0.5) {
+    public init(exercise: ExerciseDefinition, side: BodySide, smoothing: Double = 0.5, space: MeasureSpace? = nil) {
         self.exercise = exercise
         self.side = side
         self.smoothing = smoothing
-        self.engine = Self.makeEngine(exercise, side, smoothing)
+        self.space = space
+        self.engine = Self.makeEngine(exercise, side, smoothing, space)
         snapshot.missingJoints = exercise.primary.joints(for: side)
     }
 
@@ -118,7 +127,7 @@ public final class MotionSession {
 
     /// Clears reps and values, keeps the source running.
     public func reset() {
-        engine = Self.makeEngine(exercise, side, smoothing)
+        engine = Self.makeEngine(exercise, side, smoothing, space)
         visibilityStreak = 0
         pendingSetup = []
         setupStreak = 0
@@ -240,9 +249,10 @@ public final class MotionSession {
 
     // MARK: - Helpers
 
-    private static func makeEngine(_ exercise: ExerciseDefinition, _ side: BodySide, _ smoothing: Double) -> RepEngine {
+    private static func makeEngine(_ exercise: ExerciseDefinition, _ side: BodySide, _ smoothing: Double, _ space: MeasureSpace?) -> RepEngine {
         var engine = RepEngine(definition: exercise, side: side)
         engine.smoothing = smoothing
+        engine.space = space
         return engine
     }
 }
