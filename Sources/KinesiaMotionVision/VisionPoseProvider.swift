@@ -93,7 +93,10 @@ public final class VisionPoseProvider: NSObject, PoseProvider, @unchecked Sendab
               let input = try? AVCaptureDeviceInput(device: device) else { return false }
 
         captureSession.beginConfiguration()
-        captureSession.sessionPreset = .vga640x480
+        // Vision's 3D body pose loses the person at VGA; give it 720p when 3D is on.
+        let preset: AVCaptureSession.Preset = world && captureSession.canSetSessionPreset(.hd1280x720)
+            ? .hd1280x720 : .vga640x480
+        captureSession.sessionPreset = preset
         if captureSession.canAddInput(input) { captureSession.addInput(input) }
 
         let output = AVCaptureVideoDataOutput()

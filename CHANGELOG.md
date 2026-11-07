@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.4 · 2026-11-07
+
+Fix: 3D points with the front camera now cover the whole arm.
+
+- The 3D joints take their side from Vision's names. With 3D running on the un-mirrored image they
+  are already the patient's; matching by position in the image found only a few joints on device.
+- With `world: true`, `VisionPoseProvider` captures at 720p: at VGA, Vision's 3D model kept losing
+  the person ("2D Pose estimation failed").
+
 ## 0.5.3 · 2026-11-06
 
 Fix: 3D points with the front camera, for real this time.
