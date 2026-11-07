@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.2 · 2026-11-06
+
+Fix: Vision's 3D body pose failed on every live camera frame ("Unable to run HumanBodyPose3D pipeline").
+
+- With `world: true`, `VisionPoseProvider` asks the camera for BGRA frames, and `VideoPoseProvider`
+  reads videos as BGRA. The 3D pipeline couldn't convert the default YUV frames.
+- Vision reads each live frame from its pixel buffer instead of the sample buffer.
+
 ## 0.5.1 · 2026-11-06
 
 Fix: 3D points with the front camera.

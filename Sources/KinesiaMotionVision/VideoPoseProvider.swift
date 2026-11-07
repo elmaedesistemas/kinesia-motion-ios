@@ -87,7 +87,9 @@ public struct VideoPoseProvider: PoseProvider {
             throw ReadError.cannotRead(error.localizedDescription)
         }
         let output = AVAssetReaderTrackOutput(track: track, outputSettings: [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
+            // The 3D body pose needs BGRA frames; 2D reads YUV fine and it's lighter.
+            kCVPixelBufferPixelFormatTypeKey as String: world ? kCVPixelFormatType_32BGRA
+                                                              : kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
         ])
         output.alwaysCopiesSampleData = false
         guard reader.canAdd(output) else { throw ReadError.cannotRead("Can't add the video output") }

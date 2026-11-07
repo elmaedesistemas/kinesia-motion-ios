@@ -95,6 +95,11 @@ public final class VisionPoseProvider: NSObject, PoseProvider, @unchecked Sendab
 
         let output = AVCaptureVideoDataOutput()
         output.alwaysDiscardsLateVideoFrames = true
+        if world {
+            // Vision's 3D body pose converts frames to BGRA itself and fails on the camera's
+            // default YUV frames ("Unable to run HumanBodyPose3D pipeline"). Hand it BGRA.
+            output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+        }
         output.setSampleBufferDelegate(self, queue: queue)
         if captureSession.canAddOutput(output) { captureSession.addOutput(output) }
 
@@ -134,7 +139,9 @@ extension VisionPoseProvider: AVCaptureVideoDataOutputSampleBufferDelegate {
         let orientation: CGImagePropertyOrientation = isMirrored ? .leftMirrored : .right
         let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds
 
-        let handler = VNImageRequestHandler(cmSampleBuffer: sampleBuffer, orientation: orientation)
+        // From the pixel buffer, not the sample buffer: the 3D pipeline reads the frame size
+        // from it (with the sample buffer it saw 0 × 0).
+        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: orientation)
         try? handler.perform([request])
         // 3D on its own, so its failure never costs the 2D frame and can be reported.
         var error3D: Error?
