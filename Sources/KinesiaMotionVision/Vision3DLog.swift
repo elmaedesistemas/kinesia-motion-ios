@@ -21,6 +21,11 @@ enum Vision3DLog {
     private static let logger = Logger(subsystem: "one.kinesia.motion", category: "vision3d")
     private static let last = OSAllocatedUnfairLock<State?>(initialState: nil)
 
+    /// 3D kept failing, so the provider stopped asking for it: poses stay 2D.
+    static func switchedOff(after failures: Int) {
+        logger.error("3D body pose failed \(failures) frames in a row; switched off, measuring in 2D")
+    }
+
     /// Call after each frame that asked for 3D.
     static func report(error: Error?, bodies: Int, pose: Pose) {
         // Nobody in view isn't a 3D problem: keep the last state.

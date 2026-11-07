@@ -13,8 +13,10 @@ extension Pose {
     /// One Vision result as a `Pose`: pixels in the upright image, y down, sides as the patient's.
     /// No observation gives an empty pose, which tells the session the person left the frame.
     /// `observation3D` adds world points (meters, y up) for the joints seen in 2D.
+    /// `observation3DMirrored`: whether the 3D request saw a mirror image (nil: same as `mirrored`).
     init(observation: VNHumanBodyPoseObservation?,
          observation3D: VNHumanBodyPose3DObservation? = nil,
+         observation3DMirrored: Bool? = nil,
          imageSize: CGSize,
          timestamp: TimeInterval,
          mirrored: Bool,
@@ -33,7 +35,8 @@ extension Pose {
             }
         }
         let world = observation3D.map {
-            Self.worldPoints(from: $0, matching: points, imageSize: imageSize, mirrored: mirrored)
+            Self.worldPoints(from: $0, matching: points, imageSize: imageSize,
+                             mirrored3D: observation3DMirrored ?? mirrored, mirrored2D: mirrored)
         } ?? [:]
         self.init(points: points, timestamp: timestamp, imageSize: imageSize,
                   confidence: confidence, world: world)
@@ -47,12 +50,15 @@ extension Pose {
     static func worldPoints(from observation: VNHumanBodyPose3DObservation,
                             matching points: [Joint: CGPoint],
                             imageSize: CGSize,
-                            mirrored: Bool) -> [Joint: SIMD3<Double>] {
+                            mirrored3D: Bool,
+                            mirrored2D: Bool) -> [Joint: SIMD3<Double>] {
         var world: [Joint: SIMD3<Double>] = [:]
         for (name, detected) in Joint.vision3DNames {
-            let named = mirrored ? detected.mirrored : detected
+            let named = mirrored3D ? detected.mirrored : detected
             let inImage = (try? observation.pointInImage(name)).map {
-                CGPoint(x: $0.location.x * imageSize.width, y: (1 - $0.location.y) * imageSize.height)
+                // Into the 2D image: flip x when only one of the two images is a mirror image.
+                let x = mirrored3D == mirrored2D ? $0.location.x : 1 - $0.location.x
+                return CGPoint(x: x * imageSize.width, y: (1 - $0.location.y) * imageSize.height)
             }
             guard let joint = side(for: named, at: inImage, in: points, imageSize: imageSize),
                   let position = position(of: name, in: observation) else { continue }

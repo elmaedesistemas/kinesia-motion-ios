@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.3 · 2026-11-06
+
+Fix: 3D points with the front camera, for real this time.
+
+- Vision's 3D body pose fails on mirrored orientations ("Unable to run HumanBodyPose3D pipeline",
+  a NaN crop and a 0 × 0 buffer inside Vision). `VisionPoseProvider` now runs it on the un-mirrored
+  image and matches each 3D joint back to the mirrored 2D image.
+- If 3D still fails 60 frames in a row, `VisionPoseProvider` stops asking for it and poses stay 2D,
+  so a device or camera that can't run it doesn't pay for it on every frame.
+
 ## 0.5.2 · 2026-11-06
 
 Fix: Vision's 3D body pose failed on every live camera frame ("Unable to run HumanBodyPose3D pipeline").

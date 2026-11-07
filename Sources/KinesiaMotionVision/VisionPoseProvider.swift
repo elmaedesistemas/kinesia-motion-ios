@@ -37,6 +37,9 @@ public final class VisionPoseProvider: NSObject, PoseProvider, @unchecked Sendab
     private let lock = NSLock()
     private let request = VNDetectHumanBodyPoseRequest()
     private let request3D = VNDetectHumanBodyPose3DRequest()
+    /// 3D failures in a row (only touched on `queue`). Past `maximum3DFailures` 3D is switched off.
+    private var failures3D = 0
+    private let maximum3DFailures = 60
     private var continuation: AsyncStream<Pose>.Continuation?
     private var isConfigured = false
 
@@ -144,18 +147,30 @@ extension VisionPoseProvider: AVCaptureVideoDataOutputSampleBufferDelegate {
         let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: orientation)
         try? handler.perform([request])
         // 3D on its own, so its failure never costs the 2D frame and can be reported.
+        // It runs on the un-mirrored image: Vision's 3D pipeline fails on mirrored orientations
+        // ("Unable to run HumanBodyPose3D pipeline"). Sides are matched back to the 2D image.
+        let run3D = world && failures3D < maximum3DFailures
         var error3D: Error?
-        if world {
-            do { try handler.perform([request3D]) } catch { error3D = error }
+        if run3D {
+            let handler3D = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .right)
+            do {
+                try handler3D.perform([request3D])
+                failures3D = 0
+            } catch {
+                error3D = error
+                failures3D += 1
+                if failures3D == maximum3DFailures { Vision3DLog.switchedOff(after: failures3D) }
+            }
         }
 
         let pose = Pose(observation: request.results?.first,
-                        observation3D: world ? request3D.results?.first : nil,
+                        observation3D: run3D && error3D == nil ? request3D.results?.first : nil,
+                        observation3DMirrored: false,
                         imageSize: imageSize,
                         timestamp: timestamp,
                         mirrored: isMirrored,
                         minimumConfidence: minimumConfidence)
-        if world { Vision3DLog.report(error: error3D, bodies: request3D.results?.count ?? 0, pose: pose) }
+        if run3D { Vision3DLog.report(error: error3D, bodies: request3D.results?.count ?? 0, pose: pose) }
         yield(pose)
     }
 }
