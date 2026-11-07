@@ -113,14 +113,20 @@ public struct VideoPoseProvider: PoseProvider {
             lastTimestamp = timestamp
 
             let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: orientation)
-            try? handler.perform(world ? [request, request3D] : [request])
+            try? handler.perform([request])
+            var error3D: Error?
+            if world {
+                do { try handler.perform([request3D]) } catch { error3D = error }
+            }
 
-            await handle(Pose(observation: request.results?.first,
-                              observation3D: world ? request3D.results?.first : nil,
-                              imageSize: imageSize,
-                              timestamp: timestamp,
-                              mirrored: mirrored,
-                              minimumConfidence: minimumConfidence))
+            let pose = Pose(observation: request.results?.first,
+                            observation3D: world ? request3D.results?.first : nil,
+                            imageSize: imageSize,
+                            timestamp: timestamp,
+                            mirrored: mirrored,
+                            minimumConfidence: minimumConfidence)
+            if world { Vision3DLog.report(error: error3D, bodies: request3D.results?.count ?? 0, pose: pose) }
+            await handle(pose)
         }
 
         if reader.status == .failed {

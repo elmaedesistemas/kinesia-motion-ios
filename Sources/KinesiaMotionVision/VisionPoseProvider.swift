@@ -135,14 +135,21 @@ extension VisionPoseProvider: AVCaptureVideoDataOutputSampleBufferDelegate {
         let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds
 
         let handler = VNImageRequestHandler(cmSampleBuffer: sampleBuffer, orientation: orientation)
-        try? handler.perform(world ? [request, request3D] : [request])
+        try? handler.perform([request])
+        // 3D on its own, so its failure never costs the 2D frame and can be reported.
+        var error3D: Error?
+        if world {
+            do { try handler.perform([request3D]) } catch { error3D = error }
+        }
 
-        yield(Pose(observation: request.results?.first,
-                   observation3D: world ? request3D.results?.first : nil,
-                   imageSize: imageSize,
-                   timestamp: timestamp,
-                   mirrored: isMirrored,
-                   minimumConfidence: minimumConfidence))
+        let pose = Pose(observation: request.results?.first,
+                        observation3D: world ? request3D.results?.first : nil,
+                        imageSize: imageSize,
+                        timestamp: timestamp,
+                        mirrored: isMirrored,
+                        minimumConfidence: minimumConfidence)
+        if world { Vision3DLog.report(error: error3D, bodies: request3D.results?.count ?? 0, pose: pose) }
+        yield(pose)
     }
 }
 #endif

@@ -32,20 +32,59 @@ extension Pose {
                 confidence[joint] = Double(point.confidence)
             }
         }
-        var world: [Joint: SIMD3<Double>] = [:]
-        if let observation3D {
-            for (name, detected) in Joint.vision3DNames {
-                let joint = mirrored ? detected.mirrored : detected
-                // Only joints the 2D detector trusts, so both spaces see the same body.
-                guard points[joint] != nil,
-                      let transform = try? observation3D.cameraRelativePosition(name) else { continue }
-                // Camera space: meters, y up with the image upright. A mirrored image flips x,
-                // which doesn't change any angle.
-                let position = transform.columns.3
-                world[joint] = SIMD3(Double(position.x), Double(position.y), Double(position.z))
-            }
-        }
+        let world = observation3D.map {
+            Self.worldPoints(from: $0, matching: points, imageSize: imageSize, mirrored: mirrored)
+        } ?? [:]
         self.init(points: points, timestamp: timestamp, imageSize: imageSize,
                   confidence: confidence, world: world)
+    }
+
+    /// 3D points for the joints the 2D detector trusts, so both spaces see the same body.
+    ///
+    /// The side of each 3D joint is taken from where it lands in the image: it goes to the 2D
+    /// joint (left or right) it sits on. That holds whatever left/right convention Vision's 3D
+    /// model uses with a mirrored image, where naming alone could put the arm on the wrong side.
+    static func worldPoints(from observation: VNHumanBodyPose3DObservation,
+                            matching points: [Joint: CGPoint],
+                            imageSize: CGSize,
+                            mirrored: Bool) -> [Joint: SIMD3<Double>] {
+        var world: [Joint: SIMD3<Double>] = [:]
+        for (name, detected) in Joint.vision3DNames {
+            let named = mirrored ? detected.mirrored : detected
+            let inImage = (try? observation.pointInImage(name)).map {
+                CGPoint(x: $0.location.x * imageSize.width, y: (1 - $0.location.y) * imageSize.height)
+            }
+            guard let joint = side(for: named, at: inImage, in: points, imageSize: imageSize),
+                  let position = position(of: name, in: observation) else { continue }
+            world[joint] = position
+        }
+        return world
+    }
+
+    /// Which 2D joint a 3D joint belongs to: `named` or its mirror, whichever 2D point is nearer
+    /// to where the 3D joint lands in the image. nil when neither is in view (or too far away).
+    static func side(for named: Joint, at inImage: CGPoint?, in points: [Joint: CGPoint],
+                     imageSize: CGSize) -> Joint? {
+        let candidates = Set([named, named.mirrored]).filter { points[$0] != nil }
+        guard let inImage else {
+            // No image position to compare: trust the name.
+            return points[named] != nil ? named : nil
+        }
+        let maximum = 0.25 * max(imageSize.width, imageSize.height)
+        return candidates
+            .map { ($0, hypot(points[$0]!.x - inImage.x, points[$0]!.y - inImage.y)) }
+            .filter { $0.1 <= maximum }
+            .min { $0.1 < $1.1 }?
+            .0
+    }
+
+    /// Meters, y up. Camera space when Vision can place the camera; otherwise the body's own
+    /// space (relative to the hips), which gives the same angles between segments.
+    private static func position(of name: VNHumanBodyPose3DObservation.JointName,
+                                 in observation: VNHumanBodyPose3DObservation) -> SIMD3<Double>? {
+        let transform = (try? observation.cameraRelativePosition(name))
+            ?? (try? observation.recognizedPoint(name))?.position
+        guard let column = transform?.columns.3 else { return nil }
+        return SIMD3(Double(column.x), Double(column.y), Double(column.z))
     }
 }

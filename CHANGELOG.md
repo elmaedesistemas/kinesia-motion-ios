@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.1 · 2026-11-06
+
+Fix: 3D points with the front camera.
+
+- Each Vision 3D joint now goes to the 2D joint it lands on in the image, instead of trusting its
+  left/right name. With the mirrored front camera and only one arm in view, the active arm's 3D points
+  could be dropped, so measures stayed in 2D.
+- When Vision can't place the camera, positions fall back to the body's own space (same angles).
+- The 3D request runs apart from the 2D one, and the Xcode console says why 3D points are or aren't
+  arriving (subsystem `one.kinesia.motion`, category `vision3d`), once per change.
+
 ## 0.5.0 · 2026-11-06
 
 Choose 2D or 3D.
