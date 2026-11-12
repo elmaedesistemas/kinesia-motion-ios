@@ -56,7 +56,7 @@ struct ExerciseLibraryTests {
 
     @Test func everyRegionHasAnExercise() {
         let covered = Set(ExerciseLibrary.all.map(\.region))
-        for region: BodyRegion in [.neck, .shoulder, .elbow, .hip, .knee, .ankle] {
+        for region: BodyRegion in [.neck, .shoulder, .elbow, .back, .hip, .knee, .ankle] {
             #expect(covered.contains(region), "No exercise for \(region)")
         }
     }
@@ -101,6 +101,62 @@ struct ExerciseLibraryTests {
         let json = #"[{"id":"ankle.dorsiflexion.lunge","region":"ankle","view":"side","kind":{"hold":{"threshold":15,"seconds":3}},"primary":{"fromVertical":{"from":"knee","to":"ankle"}},"rules":[{"feedback":"keepTrunkUpright","measure":{"fromVertical":{"from":"shoulder","to":"hip"}},"allowed":[0,30]}],"defaultTarget":35}]"#
         let decoded = try ExerciseLibrary.decode(from: Data(json.utf8))
         #expect(decoded.first == ExerciseLibrary.ankleDorsiflexionLunge)
+    }
+
+    @Test func armBehindReadsShoulderExtension() {
+        var pose = standingPose()
+        // Right arm straight back, 40° behind the body (side view).
+        let shoulder = pose.points[.rightShoulder]!
+        let r = 40 * Double.pi / 180
+        pose.points[.rightElbow] = CGPoint(x: shoulder.x - 150 * sin(r), y: shoulder.y + 150 * cos(r))
+        pose.points[.rightWrist] = CGPoint(x: shoulder.x - 280 * sin(r), y: shoulder.y + 280 * cos(r))
+        let exercise = ExerciseLibrary.shoulderExtension
+        #expect(isClose(exercise.primary.value(in: pose, side: .right), 40))
+        #expect(exercise.rules.allSatisfy { $0.isBroken(in: pose, side: .right) == false })
+    }
+
+    @Test func legBackReadsHipExtension() {
+        var pose = standingPose()
+        // Right leg straight back, 20° behind the body (side view).
+        let hip = pose.points[.rightHip]!
+        let r = 20 * Double.pi / 180
+        pose.points[.rightKnee] = CGPoint(x: hip.x - 200 * sin(r), y: hip.y + 200 * cos(r))
+        pose.points[.rightAnkle] = CGPoint(x: hip.x - 400 * sin(r), y: hip.y + 400 * cos(r))
+        let exercise = ExerciseLibrary.hipExtensionStanding
+        #expect(isClose(exercise.primary.value(in: pose, side: .right), 20))
+        #expect(exercise.rules.allSatisfy { $0.isBroken(in: pose, side: .right) == false })
+    }
+
+    @Test func bendingForwardReadsTrunkFlexion() {
+        var pose = standingPose()
+        // Trunk pivots 70° forward over the hips, knees straight (side view).
+        let r = 70 * Double.pi / 180
+        for side in BodySide.allCases {
+            let hip = pose.points[.hip(side)]!
+            pose.points[.shoulder(side)] = CGPoint(x: hip.x + 300 * sin(r), y: hip.y - 300 * cos(r))
+        }
+        let exercise = ExerciseLibrary.trunkFlexion
+        #expect(isClose(exercise.primary.value(in: pose, side: .right), 70))
+        #expect(exercise.rules.allSatisfy { $0.isBroken(in: pose, side: .right) == false })
+    }
+
+    @Test func sideBendReadsTrunkLateralFlexion() {
+        var pose = standingPose()
+        // The midline tilts 30° to one side over level hips (front view).
+        let root = pose.points[.root]!
+        let r = 30 * Double.pi / 180
+        pose.points[.neck] = CGPoint(x: root.x + 300 * sin(r), y: root.y - 300 * cos(r))
+        let exercise = ExerciseLibrary.trunkLateralFlexion
+        for side in BodySide.allCases {
+            #expect(isClose(exercise.primary.value(in: pose, side: side), 30))
+            #expect(exercise.rules.allSatisfy { $0.isBroken(in: pose, side: side) == false })
+        }
+    }
+
+    @Test func trunkSideBendRuleCatchesHipHike() {
+        var pose = standingPose()
+        pose.points[.rightHip] = CGPoint(x: -42, y: 270)
+        #expect(ExerciseLibrary.trunkLateralFlexion.rules[0].isBroken(in: pose, side: .right) == true)
     }
 
     @Test func elbowRuleCatchesShoulderCheating() {

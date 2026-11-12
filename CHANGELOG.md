@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.0 · 2026-11-12
+
+Four new exercises, twelve in all. Same ids and thresholds as KinesiaMotion for Android 0.4.0.
+
+- `shoulderExtension` (`shoulder.extension`): straight arm back, side view. Target 50°.
+- `hipExtensionStanding` (`hip.extension.standing`): straight leg back, side view. Target 20°.
+- `trunkFlexion` (`trunk.flexion`): forward bend, side view, region `back`. Reads the trunk's lean
+  from vertical (shoulder over hip), which adds lumbar and hip flexion. Target 70°.
+- `trunkLateralFlexion` (`trunk.lateralFlexion`): side bend, front view, region `back`. Reads the
+  midline (neck to root) against vertical; run once per side. Target 30°.
+- Extensions read the same angle as the matching flexion, which has no direction: the app tells the
+  patient which way to move.
+- `KinesiaValidate` accepts `hombro-extension`, `cadera-extension`, `tronco-flexion` and `tronco-lateral`.
+
 ## 0.5.4 · 2026-11-07
 
 Fix: 3D points with the front camera now cover the whole arm.

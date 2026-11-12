@@ -84,6 +84,10 @@ public enum Validation {
         "cadera-abduccion": "hip.abduction.standing",
         "tobillo": "ankle.dorsiflexion.lunge",
         "cuello": "neck.lateralFlexion",
+        "hombro-extension": "shoulder.extension",
+        "cadera-extension": "hip.extension.standing",
+        "tronco-flexion": "trunk.flexion",
+        "tronco-lateral": "trunk.lateralFlexion",
     ]
 
     /// Reads `video,ejercicio,lado,goniometro[,espejo]` (Spanish headers; English ones work too).
